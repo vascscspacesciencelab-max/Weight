@@ -1,43 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Scale</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-        #weight { font-size: 4em; font-weight: bold; }
-        #status { color: gray; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cosmic Scale</title>
+  <style>
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: #f5f0eb;
+      color: #1a1a2e;
+      text-align: center;
+      margin-top: 80px;
+    }
+    h1 {
+      background: linear-gradient(135deg, #f7971e, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 4px;
+    }
+    #weight {
+      font-size: 5em;
+      font-weight: 900;
+      color: #4d9de0;
+      margin: 20px 0;
+    }
+    #status {
+      color: rgba(26,26,46,0.5);
+      font-size: 0.8em;
+      letter-spacing: 2px;
+    }
+    #error {
+      color: #ff6b6b;
+      font-size: 0.7em;
+      margin-top: 20px;
+    }
+  </style>
 </head>
 <body>
-    <h1>🌌 Cosmic Scale</h1>
-    <div id="weight">--.-- kg</div>
-    <div id="status">Updating...</div>
+  <h1>✦ COSMIC SCALE ✦</h1>
+  <div id="weight">--.-- kg</div>
+  <div id="status">Connecting...</div>
+  <div id="error"></div>
 
-    <script>
-        const USERNAME = "MR_LAB";
-        const FEED_KEY = "earth-weight";
-        const API_URL = `https://io.adafruit.com/api/v2/${USERNAME}/feeds/${FEED_KEY}/data/last`;
+  <script>
+    const PROXY = "https://cosmic-proxy.your-name.workers.dev";  // ← your Worker URL
+    const TARGET = "https://io.adafruit.com/api/v2/MR_LAB/feeds/earth-weight/data?limit=1";
+    const API_URL = PROXY + "?url=" + encodeURIComponent(TARGET);
 
-        async function fetchData() {
-            try {
-                // Since the feed is public, we don't need a key.
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
-                const data = await response.json();
-                document.getElementById('weight').textContent = parseFloat(data.value).toFixed(2) + ' kg';
-                document.getElementById('status').textContent = 'Updated: ' + new Date(data.created_at).toLocaleTimeString();
-            } catch (error) {
-                document.getElementById('status').textContent = 'Error fetching data. Check console.';
-                console.error("Fetch error:", error);
-            }
-        }
+    async function fetchData() {
+      const statusEl = document.getElementById("status");
+      const errorEl  = document.getElementById("error");
+      errorEl.textContent = "";
 
-        // Fetch data immediately, then every 3 seconds
-        fetchData();
-        setInterval(fetchData, 3000);
-    </script>
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+
+        const data = await response.json();
+        // data is an ARRAY: [{ value: "68.40", created_at: "..." }]
+        const latest = data[0];
+
+        document.getElementById("weight").textContent =
+          parseFloat(latest.value).toFixed(2) + " kg";
+
+        statusEl.textContent =
+          "Updated: " + new Date(latest.created_at).toLocaleTimeString();
+      } catch (err) {
+        statusEl.textContent = "Error";
+        errorEl.textContent = err.message;
+        console.error(err);
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, 3000);
+  </script>
 </body>
 </html>
