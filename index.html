@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cosmic Scale</title>
+  <title>🌌 Cosmic Scale</title>
   <style>
     body {
       font-family: 'Orbitron', sans-serif;
       background: #f5f0eb;
       color: #1a1a2e;
+      margin: 0;
+      padding: 20px;
       text-align: center;
-      margin-top: 80px;
     }
     h1 {
       background: linear-gradient(135deg, #f7971e, #ff6b6b);
@@ -18,62 +19,115 @@
       -webkit-text-fill-color: transparent;
       letter-spacing: 4px;
     }
-    #weight {
-      font-size: 5em;
-      font-weight: 900;
-      color: #4d9de0;
-      margin: 20px 0;
+    #updated { color: #888; font-size: 0.8em; margin-bottom: 20px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      max-width: 1400px;
+      margin: 0 auto;
     }
-    #status {
-      color: rgba(26,26,46,0.5);
-      font-size: 0.8em;
-      letter-spacing: 2px;
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      border-top: 3px solid var(--c, #4d9de0);
+      transition: transform 0.2s;
     }
-    #error {
-      color: #ff6b6b;
-      font-size: 0.7em;
-      margin-top: 20px;
-    }
+    .card:hover { transform: translateY(-4px); }
+    .icon { font-size: 2em; display: block; }
+    .name { font-weight: 700; font-size: 0.8em; letter-spacing: 2px; margin: 4px 0; }
+    .weight { font-size: 1.5em; font-weight: 900; color: #4d9de0; }
+    .ratio { font-size: 0.6em; color: #999; margin-top: 4px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 600px) { .grid { grid-template-columns: repeat(2, 1fr); } }
   </style>
 </head>
 <body>
   <h1>✦ COSMIC SCALE ✦</h1>
-  <div id="weight">--.-- kg</div>
-  <div id="status">Connecting...</div>
-  <div id="error"></div>
+  <div id="updated">Connecting...</div>
+  <div class="grid" id="grid"></div>
 
   <script>
-    const PROXY = "https://cosmic-proxy.vascsc-spacesciencelab.workers.dev/";  // ← your Worker URL
-    const TARGET = "https://io.adafruit.com/api/v2/MR_LAB/feeds/earth-weight/data?limit=1";
-    const API_URL = PROXY + "?url=" + encodeURIComponent(TARGET);
+    const PROXY = "https://YOUR-WORKER.workers.dev";   // ← your Worker URL
+    const USER = "MR_LAB";
 
-    async function fetchData() {
-      const statusEl = document.getElementById("status");
-      const errorEl  = document.getElementById("error");
-      errorEl.textContent = "";
+    const BODIES = [
+      { key: "sun",     name: "Sun",     icon: "☀️", gravity: 27.9,  color: "#FDB813" },
+      { key: "mercury", name: "Mercury", icon: "☿",  gravity: 0.38,  color: "#b5b5b5" },
+      { key: "venus",   name: "Venus",   icon: "♀",  gravity: 0.90,  color: "#e8cda0" },
+      { key: "earth",   name: "Earth",   icon: "🌍", gravity: 1.00,  color: "#4d9de0" },
+      { key: "moon",    name: "Moon",    icon: "🌙", gravity: 0.165, color: "#c2c2c2" },
+      { key: "mars",    name: "Mars",    icon: "♂",  gravity: 0.38,  color: "#c1440e" },
+      { key: "jupiter", name: "Jupiter", icon: "♃",  gravity: 2.53,  color: "#d4a574" },
+      { key: "saturn",  name: "Saturn",  icon: "♄",  gravity: 1.06,  color: "#ead6b8" },
+      { key: "uranus",  name: "Uranus",  icon: "⛢",  gravity: 0.89,  color: "#7ec8e3" },
+      { key: "neptune", name: "Neptune", icon: "♆",  gravity: 1.14,  color: "#3b4cb8" }
+    ];
 
-      try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error("HTTP " + response.status);
-
-        const data = await response.json();
-        // data is an ARRAY: [{ value: "68.40", created_at: "..." }]
-        const latest = data[0];
-
-        document.getElementById("weight").textContent =
-          parseFloat(latest.value).toFixed(2) + " kg";
-
-        statusEl.textContent =
-          "Updated: " + new Date(latest.created_at).toLocaleTimeString();
-      } catch (err) {
-        statusEl.textContent = "Error";
-        errorEl.textContent = err.message;
-        console.error(err);
-      }
+    function makeCard(b) {
+      const c = document.createElement("div");
+      c.className = "card";
+      c.style.setProperty("--c", b.color);
+      c.innerHTML = `
+        <span class="icon">${b.icon}</span>
+        <div class="name">${b.name}</div>
+        <div class="weight" id="w-${b.key}">--.-- kg</div>
+        <div class="ratio" id="r-${b.key}">-- %</div>
+      `;
+      return c;
     }
 
-    fetchData();
-    setInterval(fetchData, 3000);
+    function buildGrid() {
+      const g = document.getElementById("grid");
+      BODIES.forEach(b => g.appendChild(makeCard(b)));
+    }
+
+    async function fetchFeed(key) {
+      const target = `https://io.adafruit.com/api/v2/${USER}/feeds/${key}-weight/data?limit=1`;
+      const url = `${PROXY}?url=${encodeURIComponent(target)}`;
+      try {
+        const r = await fetch(url);
+        const data = await r.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return parseFloat(data[0].value);
+        }
+      } catch (e) {
+        console.error(key, e);
+      }
+      return null;
+    }
+
+    async function updateAll() {
+      const values = await Promise.all(BODIES.map(b => fetchFeed(b.key)));
+      const earthIdx = BODIES.findIndex(b => b.key === "earth");
+      const earth = values[earthIdx];
+
+      BODIES.forEach((b, i) => {
+        const v = values[i];
+        const el = document.getElementById(`w-${b.key}`);
+        const rl = document.getElementById(`r-${b.key}`);
+        if (v === null) {
+          el.textContent = "--.-- kg";
+          rl.textContent = "no data";
+        } else {
+          el.textContent = v.toFixed(2) + " kg";
+          if (earth && earth > 0 && b.key !== "earth") {
+            rl.textContent = (v / earth * 100).toFixed(1) + "% of Earth";
+          } else {
+            rl.textContent = b.gravity + "g";
+          }
+        }
+      });
+
+      document.getElementById("updated").textContent =
+        "Updated: " + new Date().toLocaleTimeString();
+    }
+
+    buildGrid();
+    updateAll();
+    setInterval(updateAll, 10000);   // refresh every 10 s (10 feeds per cycle)
   </script>
 </body>
 </html>
